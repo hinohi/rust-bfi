@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Daiju Nakayama <42.daiju@gmail.com>"]
 
 [dependencies]
+argparse = "*"
