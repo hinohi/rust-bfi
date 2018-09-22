@@ -7,6 +7,7 @@ use std::string::String;
 
 struct Args {
     src: String,
+    debug_level: u32,
 }
 
 #[derive(Debug)]
@@ -68,26 +69,22 @@ impl AST {
         let mut ctx = None;
         for c in &src.codes {
             match c {
-                Code::Add(i) => {
-                    match ctx {
-                        Some(Code::Add(j)) => ctx = Some(Code::Add(i + j)),
-                        Some(some) => {
-                            dst.codes.push(some);
-                            ctx = Some(Code::Add(*i));
-                        },
-                        None => ctx = Some(Code::Add(*i)),
+                Code::Add(i) => match ctx {
+                    Some(Code::Add(j)) => ctx = Some(Code::Add(i + j)),
+                    Some(some) => {
+                        dst.codes.push(some);
+                        ctx = Some(Code::Add(*i));
                     }
+                    None => ctx = Some(Code::Add(*i)),
                 },
-                Code::Move(i) => {
-                    match ctx {
-                        Some(Code::Move(j)) => ctx = Some(Code::Move(i + j)),
-                        Some(some) => {
-                            dst.codes.push(some);
-                            ctx = Some(Code::Move(*i));
-                        },
-                        None => ctx = Some(Code::Move(*i)),
+                Code::Move(i) => match ctx {
+                    Some(Code::Move(j)) => ctx = Some(Code::Move(i + j)),
+                    Some(some) => {
+                        dst.codes.push(some);
+                        ctx = Some(Code::Move(*i));
                     }
-                }
+                    None => ctx = Some(Code::Move(*i)),
+                },
                 Code::Loop(ref loop_src) => {
                     if let Some(other) = ctx {
                         dst.codes.push(other);
@@ -133,7 +130,7 @@ struct Tape {
 impl Tape {
     fn new() -> Tape {
         Tape {
-            mem: vec![0; 32],
+            mem: vec![0; 2_i32.pow(20) as usize],
             point: 0,
         }
     }
@@ -182,14 +179,19 @@ fn run(args: Args) -> Result<(), String> {
     };
 
     let src: Vec<char> = buf.chars().collect();
-    println!("{:?}", src);
-
+    if args.debug_level >= 3 {
+        println!("{:?}", src);
+    }
     let mut ast = AST::new();
     ast.parse(&src)?;
-    println!("{:?}", ast);
+    if args.debug_level >= 2 {
+        println!("{:?}", ast);
+    }
 
     let optimized = ast.optimize();
-    println!("{:?}", optimized);
+    if args.debug_level >= 1 {
+        println!("{:?}", optimized);
+    }
 
     let mut tape = Tape::new();
     tape.evaluate(&optimized);
@@ -200,12 +202,15 @@ fn run(args: Args) -> Result<(), String> {
 fn parse_args() -> Args {
     let mut args = Args {
         src: "-".to_string(),
+        debug_level: 0,
     };
     {
         let mut p = ArgumentParser::new();
         p.set_description("brainfuck interpreter");
         p.refer(&mut args.src)
             .add_argument("src", Store, "brainfuck source file");
+        p.refer(&mut args.debug_level)
+            .add_option(&["--debug", "-d"], Store, "debug level");
         p.parse_args_or_exit();
     }
     args
