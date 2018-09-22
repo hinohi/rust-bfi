@@ -60,8 +60,68 @@ impl AST {
         }
     }
 
-    fn parse(&mut self, src: &[char])-> Result<usize, String> {
+    fn parse(&mut self, src: &[char]) -> Result<usize, String> {
         self._parse(src, 0)
+    }
+
+    fn _optimize_merge(src: &AST, dst: &mut AST) {
+        let mut ctx = None;
+        for c in &src.codes {
+            match c {
+                Code::Add(i) => {
+                    match ctx {
+                        Some(Code::Add(j)) => ctx = Some(Code::Add(i + j)),
+                        Some(some) => {
+                            dst.codes.push(some);
+                            ctx = Some(Code::Add(*i));
+                        },
+                        None => ctx = Some(Code::Add(*i)),
+                    }
+                },
+                Code::Move(i) => {
+                    match ctx {
+                        Some(Code::Move(j)) => ctx = Some(Code::Move(i + j)),
+                        Some(some) => {
+                            dst.codes.push(some);
+                            ctx = Some(Code::Move(*i));
+                        },
+                        None => ctx = Some(Code::Move(*i)),
+                    }
+                }
+                Code::Loop(ref loop_src) => {
+                    if let Some(other) = ctx {
+                        dst.codes.push(other);
+                        ctx = None;
+                    }
+                    let mut loop_dst = AST::new();
+                    AST::_optimize_merge(loop_src, &mut loop_dst);
+                    dst.codes.push(Code::Loop(Box::new(loop_dst)));
+                }
+                Code::Get => {
+                    if let Some(other) = ctx {
+                        dst.codes.push(other);
+                        ctx = None;
+                    }
+                    dst.codes.push(Code::Get);
+                }
+                Code::Put => {
+                    if let Some(other) = ctx {
+                        dst.codes.push(other);
+                        ctx = None;
+                    }
+                    dst.codes.push(Code::Put);
+                }
+            }
+        }
+        if let Some(some) = ctx {
+            dst.codes.push(some);
+        }
+    }
+
+    fn optimize(&self) -> AST {
+        let mut opt = AST::new();
+        AST::_optimize_merge(&self, &mut opt);
+        opt
     }
 }
 
@@ -128,8 +188,11 @@ fn run(args: Args) -> Result<(), String> {
     ast.parse(&src)?;
     println!("{:?}", ast);
 
+    let optimized = ast.optimize();
+    println!("{:?}", optimized);
+
     let mut tape = Tape::new();
-    tape.evaluate(&ast);
+    tape.evaluate(&optimized);
 
     Ok(())
 }
