@@ -1,0 +1,4 @@
+** memory layout: ndrqXY
+,>,<
+n[n->d-[>r+>>X]>Yr?[r+[-<d+>]>q+>>Y]Y<<<<<n]
+>>>.<.
